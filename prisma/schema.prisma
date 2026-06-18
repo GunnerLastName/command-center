@@ -1,0 +1,189 @@
+// Command Center database schema.
+// SQLite doesn't support enums in Prisma, so status/priority fields are
+// strings constrained by zod in src/lib/validation.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Project {
+  id                String    @id @default(cuid())
+  name              String
+  description       String    @default("")
+  category          String    @default("")
+  status            String    @default("active") // idea | active | paused | completed | archived
+  priority          String    @default("medium") // low | medium | high
+  mainGoal          String    @default("")
+  currentBottleneck String    @default("")
+  nextBestAction    String    @default("")
+  deadline          DateTime?
+  progressPercent   Int       @default(0)
+  completedAt       DateTime?
+  notes             String    @default("")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  areas        ProjectArea[]
+  tasks        Task[]
+  brainDumps   BrainDumpItem[]
+  workSessions WorkSession[]
+}
+
+model ProjectArea {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  description String   @default("")
+  status      String   @default("active")
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project    Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks      Task[]
+  brainDumps BrainDumpItem[]
+
+  @@index([projectId])
+}
+
+model Task {
+  id               String    @id @default(cuid())
+  projectId        String?
+  projectAreaId    String?
+  title            String
+  notes            String    @default("")
+  status           String    @default("todo") // todo | doing | done | archived
+  priority         String    @default("medium") // low | medium | high
+  dueDate          DateTime?
+  estimatedMinutes Int?
+  today            Boolean   @default(false)
+  todaySortOrder   Int       @default(0)
+  sortOrder        Int       @default(0)
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  project      Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectArea  ProjectArea?  @relation(fields: [projectAreaId], references: [id], onDelete: SetNull)
+  workSessions WorkSession[]
+
+  @@index([projectId])
+  @@index([projectAreaId])
+  @@index([status])
+  @@index([today])
+}
+
+model BrainDumpItem {
+  id            String   @id @default(cuid())
+  title         String
+  notes         String   @default("")
+  category      String   @default("")
+  projectId     String?
+  projectAreaId String?
+  status        String   @default("inbox") // inbox | reviewed | converted | archived
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectArea ProjectArea? @relation(fields: [projectAreaId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([projectAreaId])
+  @@index([status])
+}
+
+model WorkSession {
+  id              String    @id @default(cuid())
+  projectId       String?
+  taskId          String?
+  description     String    @default("")
+  startTime       DateTime
+  endTime         DateTime?
+  durationMinutes Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  task    Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([taskId])
+  @@index([startTime])
+  @@index([endTime])
+}
+
+model DailyReview {
+  id            String   @id @default(cuid())
+  date          String   @unique // local date key, "yyyy-MM-dd"
+  whatGotDone   String   @default("")
+  whatIAvoided  String   @default("")
+  biggestWin    String   @default("")
+  lesson        String   @default("")
+  tomorrowFocus String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model DailyHabit {
+  id           String   @id @default(cuid())
+  name         String
+  description  String   @default("")
+  category     String   @default("")
+  active       Boolean  @default(true)
+  points       Int      @default(1)
+  sortOrder    Int      @default(0)
+  scheduleDays String   @default("1,2,3,4,5,6,7") // ISO weekdays 1=Mon..7=Sun, CSV
+  timesPerDay  Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  completions HabitCompletion[]
+}
+
+model HabitCompletion {
+  id             String    @id @default(cuid())
+  habitId        String
+  date           String // local date key, "yyyy-MM-dd"
+  completed      Boolean   @default(false)
+  completedCount Int       @default(0)
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  habit DailyHabit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+}
+
+model Settings {
+  id                String   @id @default("singleton")
+  dailyMinimumHours Float    @default(6)
+  dailyStretchHours Float    @default(8)
+  workScoreWeight   Int      @default(40)
+  habitsScoreWeight Int      @default(35)
+  tasksScoreWeight  Int      @default(15)
+  reviewScoreWeight Int      @default(10)
+  theme             String   @default("dark")
+  userName          String   @default("Gunner")
+  dashboardWidgets  String   @default("{}")
+  keyboardShortcuts String   @default("{}")
+  dayRolloverHour   Int      @default(2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model WeeklyReview {
+  id             String   @id @default(cuid())
+  weekStart      String   @unique // yyyy-MM-dd Monday
+  whatWorked     String   @default("")
+  whatToFix      String   @default("")
+  nextWeekFocus  String   @default("")
+  notes          String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
