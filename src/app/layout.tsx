@@ -58,15 +58,26 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [activeSession, projects, settings] = await Promise.all([
-    getActiveSession(),
-    getProjectOptions(),
-    getSettings(),
-  ]);
-  const themeId = resolveThemeId(settings.theme ?? "dark");
-  const theme = getTheme(themeId);
-  const themeClass = themeToHtmlClass(theme);
-  const shortcuts = parseShortcutSettings(settings.keyboardShortcuts ?? "{}");
+  let activeSession: Awaited<ReturnType<typeof getActiveSession>> = null;
+  let projects: Awaited<ReturnType<typeof getProjectOptions>> = [];
+  let themeClass = "dark";
+  let shortcuts = parseShortcutSettings("{}");
+
+  try {
+    const [session, projs, settings] = await Promise.all([
+      getActiveSession(),
+      getProjectOptions(),
+      getSettings(),
+    ]);
+    activeSession = session;
+    projects = projs;
+    const themeId = resolveThemeId(settings.theme ?? "dark");
+    const theme = getTheme(themeId);
+    themeClass = themeToHtmlClass(theme);
+    shortcuts = parseShortcutSettings(settings.keyboardShortcuts ?? "{}");
+  } catch {
+    // DB unavailable during build pre-render — use defaults
+  }
 
   return (
     <html
