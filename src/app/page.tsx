@@ -53,6 +53,22 @@ import { workStatus } from "@/lib/scoring";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  try {
+    return await DashboardPageInner();
+  } catch (err) {
+    console.error("[dashboard] DB error:", err);
+    return (
+      <div style={{ minHeight: "60vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, color: "white" }}>
+        <span style={{ fontSize: 40, color: "#fbb415" }}>⌘</span>
+        <p style={{ fontSize: 16, fontWeight: 600 }}>Database connection failed</p>
+        <p style={{ fontSize: 13, color: "#888" }}>Check Vercel logs for the connection error.</p>
+        <a href="/" style={{ color: "#fbb415", fontSize: 13, textDecoration: "underline" }}>Retry</a>
+      </div>
+    );
+  }
+}
+
+async function DashboardPageInner() {
   // getTodayStandards loads settings (including dayRolloverHour) and rolls
   // stale done tasks off today's list. Must run before other queries.
   const standards = await getTodayStandards();
